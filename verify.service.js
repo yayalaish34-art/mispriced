@@ -8,7 +8,7 @@ const client = twilio(accountSid, authToken);
 
 async function createVerification(phoneNumber) {
   const verification = await client.verify.v2
-    .services("VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    .services(process.env.SERVICE_SID)
     .verifications.create({
       channel: "sms",
       to: phoneNumber, // מספר דינמי
