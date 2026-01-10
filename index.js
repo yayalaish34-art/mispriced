@@ -21,7 +21,7 @@ const smsRoutes = require("./sms");
 
 
 
-app.use("/", smsRoutes);
+app.use("/sms", smsRoutes);
 
 
 const PORT = process.env.PORT || 3000;
