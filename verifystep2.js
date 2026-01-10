@@ -7,15 +7,15 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = twilio(accountSid, authToken);
 
-async function createVerificationCheck() {
+async function createVerificationCheck(phoneNumber,code) {
   const verificationCheck = await client.verify.v2
     .services("VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     .verificationChecks.create({
-      code: "123456",
-      to: "+15017122661",
+      code,
+      to: phoneNumber,
     });
 
   console.log(verificationCheck.status);
 }
 
-createVerificationCheck();
+module.exports = { createVerificationCheck };
