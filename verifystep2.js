@@ -16,7 +16,15 @@ async function createVerificationCheck(phoneNumber,code) {
       to: phoneNumber,
     });
 
-  console.log(verificationCheck.status);
+     if (verificationCheck.status === "approved") {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    reason: verificationCheck.status, // pending / expired / canceled
+  };
+
 }
 
 module.exports = { createVerificationCheck };
