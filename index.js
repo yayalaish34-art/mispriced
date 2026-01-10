@@ -1,8 +1,18 @@
 // index.js
 require("dotenv").config();
 const express = require("express");
-
+const cors = require("cors");
 const app = express();
+
+
+
+app.use(
+  cors({
+    origin: "*", // בפיתוח: פתוח לכולם
+    methods: ["GET", "POST", "OPTIONS"],
+  })
+);
+
 
 app.use(express.json());
 
