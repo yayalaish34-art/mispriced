@@ -12,7 +12,7 @@ async function createVerificationCheck(phoneNumber,code) {
   const verificationCheck = await client.verify.v2
     .services(servicesid)
     .verificationChecks.create({
-      code,
+      code: code,
       to: phoneNumber,
     });
 
