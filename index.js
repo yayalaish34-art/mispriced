@@ -19,11 +19,11 @@ app.use(express.json());
 
 
 const smsRoutes = require("./sms");
-
+const dev = require("./devscreen");
 
 
 app.use("/sms", smsRoutes);
-
+app.use("/devscreen", dev);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
