@@ -22,11 +22,11 @@ router.post("/sendtomany", async (req, res) => {
       });
     }
 
-    await sendScanAlertToMany(recipients, url);
+    const data = await sendScanAlertToMany(recipients, url);
 
     return res.json({
       ok: true,
-      sent: recipients.length,
+      sent: data,
     });
   } catch (err) {
     console.error("sendtomany failed:", err.message);
