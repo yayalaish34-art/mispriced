@@ -16,8 +16,8 @@ router.post("/checkout", async (req, res) => {
     const { subscription_id, plan } = req.body;
 
     // תעדכן את ה-URLs שלך
-const successUrl = "https://mispriced-production.up.railway.app/billing/success";
-const failedUrl = "https://mispriced-production.up.railway.app/billing/failed";
+const successUrl = "https://mispriced.ai/thank-you";
+const failedUrl = "https://mispriced.ai/payment-failed";
 const webhookUrl = "https://mispriced-production.up.railway.app/api/billing/cardcom/webhook";
 
 
