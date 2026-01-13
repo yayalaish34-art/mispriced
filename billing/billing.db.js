@@ -1,6 +1,6 @@
 // billing/billing.db.js
 
-const supabase = require("./supabase");
+const supabase = require("../supabase");
 
 function normalizePhone(x) {
   if (!x) return null;
