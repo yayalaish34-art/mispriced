@@ -16,9 +16,10 @@ router.post("/checkout", async (req, res) => {
     const { subscription_id, plan } = req.body;
 
     // תעדכן את ה-URLs שלך
-    const successUrl = "https://yourapp.com/billing/success";
-    const failedUrl = "https://yourapp.com/billing/failed";
-    const webhookUrl = "https://yourapp.com/api/billing/cardcom/webhook";
+const successUrl = "https://mispriced-production.up.railway.app/billing/success";
+const failedUrl = "https://mispriced-production.up.railway.app/billing/failed";
+const webhookUrl = "https://mispriced-production.up.railway.app/api/billing/cardcom/webhook";
+
 
     const data = await createCheckout({
       subscription_id,
