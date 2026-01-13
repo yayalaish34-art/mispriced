@@ -5,7 +5,7 @@ module.exports = {
   GET_LP_RESULT_URL: "https://secure.cardcom.solutions/api/v11/LowProfile/GetLpResult",
   DO_TRANSACTION_URL: "https://secure.cardcom.solutions/api/v11/Transactions/Transaction",
 
-  TERMINAL_NUMBER: Number(process.env.CARDCOM_TERMINAL_NUMBER),
+  TERMINAL_NUMBER: Number(process.env.CARDCOM_TERMINAL),
   API_NAME: process.env.CARDCOM_API_NAME,
 
   ISOCoinId_USD: 2,
