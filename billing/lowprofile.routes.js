@@ -89,8 +89,7 @@ router.post("/webhook", async (req, res) => {
     const Description = body.Description;
     const TranzactionId = body.TranzactionId;
 
-    // Cardcom sometimes sends LowProfileDealGuid (GUID) + sometimes LowProfileId
-    const LowProfileDealGuid = body.LowProfileDealGuid || body.DealGuid || null;
+
     const LowProfileId = body.LowProfileId || null;
 
     const ReturnValue = body.ReturnValue || null;
@@ -124,7 +123,7 @@ router.post("/webhook", async (req, res) => {
     const nextChargeAtIso = toIsoNowPlus(plan);
 
     // ✅ Prefer GUID if Cardcom sent it, otherwise fallback to LowProfileId
-    const dealGuidForRecurring = LowProfileDealGuid || LowProfileId;
+    const dealGuidForRecurring = LowProfileId;
 
     let recurringResp = null;
     if (success && dealGuidForRecurring && amount) {
