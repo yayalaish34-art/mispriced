@@ -1,7 +1,7 @@
 // billing/cardcom.lowprofile.service.js
 
 const LOW_PROFILE_URL =
-  "https://secure.cardcom.solutions/Interface/LowProfile.aspx";
+  "https://secure.cardcom.solutions/api/v11/LowProfile/Create";
 
 /**
  * Creates a Cardcom Low Profile payment page (ChargeOnly)
