@@ -3,41 +3,42 @@
 const LOW_PROFILE_URL =
   "https://secure.cardcom.solutions/api/v11/LowProfile/Create";
 
-/**
- * Creates a Cardcom Low Profile payment page (ChargeOnly)
- * Expects JSON response: { ResponseCode, LowProfileId, Url, UrlToBit, ... }
- */
-async function createLowProfilePayment({
-  amount,
-  phone,
-  plan,
-  successRedirectUrl,
-  failedRedirectUrl,
-  webHookUrl,
-}) {
+async function createLowProfilePayment({ amount, phone, plan }) {
   if (!amount) throw new Error("amount is required");
   if (!phone) throw new Error("phone is required");
   if (!plan) throw new Error("plan is required");
-  if (!webHookUrl) throw new Error("webHookUrl is required");
+
+  const numericAmount = Number(amount).toFixed(2);
 
   const payload = {
     TerminalNumber: process.env.CARDCOM_TERMINAL,
     ApiName: process.env.CARDCOM_API_NAME,
-    Operation: "ChargeOnly",
+    Operation: "ChargeAndCreateToken",
 
-    Amount: Number(amount).toFixed(2),
-    ISOCoinId: 2, // 2 = USD
+    Amount: numericAmount,
+    ISOCoinId: 2, // USD
     Language: "en",
 
-    SuccessRedirectUrl: successRedirectUrl,
-    FailedRedirectUrl: failedRedirectUrl,
+    SuccessRedirectUrl: "https://www.mispriced-ai.com?success=1",
+    FailedRedirectUrl: "https://www.mispriced-ai.com?failure=1",
 
-    WebHookUrl: webHookUrl,
+    WebHookUrl: "https://www.mispriced-ai.com/api/billing/webhook",
+
+    Document: {
+      DocumentTypeToCreate: "Receipt",
+      Name: "לקוח פרטי",
+      Email: "yairlaish19@gmail.com",
+      IsSendByEmail: true,
+      IsVatFree: true,
+      Products: [
+        { Description: "Subscription", UnitCost: numericAmount, IsVatFree: true },
+      ],
+    },
 
     ReturnValue: JSON.stringify({
       phone,
       plan,
-      amount: Number(amount).toFixed(2),
+      amount: numericAmount,
     }),
   };
 
@@ -47,8 +48,8 @@ async function createLowProfilePayment({
     body: JSON.stringify(payload),
   });
 
-  // Try JSON, fallback to text for debugging
   const rawText = await res.text();
+
   let data;
   try {
     data = rawText ? JSON.parse(rawText) : {};
@@ -56,33 +57,16 @@ async function createLowProfilePayment({
     throw new Error(`Cardcom did not return JSON. Raw: ${rawText}`);
   }
 
-  if (!res.ok) {
-    throw new Error(
-      `Cardcom request failed (${res.status}): ${rawText}`
-    );
-  }
-
-  // ResponseCode: 0 = success
-  if (Number(data.ResponseCode) !== 0) {
-    throw new Error(`Cardcom error: ${rawText}`);
-  }
+  if (!res.ok) throw new Error(`Cardcom request failed (${res.status}): ${rawText}`);
+  if (Number(data.ResponseCode) !== 0) throw new Error(`Cardcom error: ${rawText}`);
 
   const lowProfileId = data.LowProfileId;
   const paymentUrl = data.Url || data.UrlToBit || data.UrlToPayPal;
 
-  if (!lowProfileId) {
-    throw new Error(`Missing LowProfileId. Raw: ${rawText}`);
-  }
-  if (!paymentUrl) {
-    throw new Error(`Missing payment URL (Url/UrlToBit). Raw: ${rawText}`);
-  }
+  if (!lowProfileId) throw new Error(`Missing LowProfileId. Raw: ${rawText}`);
+  if (!paymentUrl) throw new Error(`Missing payment URL (Url/UrlToBit). Raw: ${rawText}`);
 
-  return {
-    lowProfileId,
-    paymentUrl,
-  };
+  return { lowProfileId, paymentUrl };
 }
 
-module.exports = {
-  createLowProfilePayment,
-};
+module.exports = { createLowProfilePayment };

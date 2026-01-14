@@ -3,9 +3,9 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  createLowProfilePayment,
-} = require("./cardcom.lowprofile.service");
+const supabase = require("../supabase"); // ✅ חשוב: אם supabase.js אצלך בשורש הפרויקט
+const { createRecurringOrder } = require("./cardcom.recurring.service");
+const { createLowProfilePayment } = require("./cardcom.lowprofile.service");
 
 /**
  * Plan → Amount (USD)
@@ -16,16 +16,42 @@ function getAmountByPlan(plan) {
   throw new Error("Invalid plan");
 }
 
+/**
+ * dd/MM/yyyy for Cardcom Recurring
+ */
+function getNextBillingDate(plan) {
+  const d = new Date();
 
+  if (plan === "monthly") d.setMonth(d.getMonth() + 1);
+  if (plan === "annual") d.setFullYear(d.getFullYear() + 1);
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * ISO for DB
+ */
+function toIsoNowPlus(plan) {
+  const d = new Date();
+  if (plan === "monthly") d.setMonth(d.getMonth() + 1);
+  if (plan === "annual") d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString();
+}
+
+/**
+ * POST /api/billing/lowprofile/checkout
+ * body: { phone, plan }
+ */
 router.post("/checkout", async (req, res) => {
   try {
     const { phone, plan } = req.body;
 
     if (!phone || !plan) {
-      return res.status(400).json({
-        ok: false,
-        error: "phone and plan are required",
-      });
+      return res.status(400).json({ ok: false, error: "phone and plan are required" });
     }
 
     const amount = getAmountByPlan(plan);
@@ -34,9 +60,6 @@ router.post("/checkout", async (req, res) => {
       phone,
       plan,
       amount,
-      successRedirectUrl: "https://yourdomain.com/payment/success",
-      failedRedirectUrl: "https://yourdomain.com/payment/failed",
-      webHookUrl: "https://yourdomain.com/api/billing/lowprofile/webhook",
     });
 
     return res.json({
@@ -48,30 +71,30 @@ router.post("/checkout", async (req, res) => {
     });
   } catch (err) {
     console.error("Create low profile failed:", err.message);
-    return res.status(400).json({
-      ok: false,
-      error: err.message,
-    });
+    return res.status(400).json({ ok: false, error: err.message });
   }
 });
 
 /**
- * ==============================
- * 2️⃣ WebHook / Indicator (JSON)
+ * Webhook URL you configured in Cardcom:
+ * https://www.mispriced-ai.com/api/billing/lowprofile/webhook
+ *
  * POST /api/billing/lowprofile/webhook
- * ==============================
  */
-router.post("/lowprofile/webhook", async (req, res) => {
+router.post("/webhook", async (req, res) => {
   try {
-    const {
-      ResponseCode,
-      Description,
-      LowProfileId,
-      TranzactionId,
-      ReturnValue,
-      UIValues,
-      Operation,
-    } = req.body;
+    const body = req.body || {};
+
+    const ResponseCode = body.ResponseCode;
+    const Description = body.Description;
+    const TranzactionId = body.TranzactionId;
+
+    // Cardcom sometimes sends LowProfileDealGuid (GUID) + sometimes LowProfileId
+    const LowProfileDealGuid = body.LowProfileDealGuid || body.DealGuid || null;
+    const LowProfileId = body.LowProfileId || null;
+
+    const ReturnValue = body.ReturnValue || null;
+    const UIValues = body.UIValues || {};
 
     const success = Number(ResponseCode) === 0;
 
@@ -86,15 +109,57 @@ router.post("/lowprofile/webhook", async (req, res) => {
         phone = parsed.phone ?? null;
         plan = parsed.plan ?? null;
         amount = parsed.amount ?? null;
-      } catch (err) {
+      } catch (e) {
         console.error("Failed to parse ReturnValue:", ReturnValue);
       }
     }
 
-    // Optional UI values (exact keys from docs)
     const CardOwnerName = UIValues?.CardOwnerName ?? null;
     const CardOwnerPhone = UIValues?.CardOwnerPhone ?? null;
     const CardOwnerEmail = UIValues?.CardOwnerEmail ?? null;
+
+    // ✅ Cardcom recurring wants dd/MM/yyyy
+    const nextDateToBill = getNextBillingDate(plan);
+    // ✅ DB best as ISO
+    const nextChargeAtIso = toIsoNowPlus(plan);
+
+    // ✅ Prefer GUID if Cardcom sent it, otherwise fallback to LowProfileId
+    const dealGuidForRecurring = LowProfileDealGuid || LowProfileId;
+
+    let recurringResp = null;
+    if (success && dealGuidForRecurring && amount) {
+      recurringResp = await createRecurringOrder({
+        lowProfileDealGuid: dealGuidForRecurring,
+        companyName: CardOwnerName || "Private Client",
+        price: Number(amount).toFixed(2),
+        nextDateToBill,
+        returnValue: ReturnValue || "",
+      });
+    }
+
+    // Pull ids if returned
+    const accountId = recurringResp?.AccountId || null;
+    const recurringId =
+      recurringResp?.["Recurring0.RecurringId"] ||
+      recurringResp?.RecurringId ||
+      null;
+
+    // ✅ Fix: upsert payload must be ONE object
+    if (phone) {
+      const { error } = await supabase
+        .from("billing")
+        .upsert(
+          {
+            subscription_id: phone,
+            plan,
+            next_charge_at: nextChargeAtIso,
+
+          },
+          { onConflict: "subscription_id" }
+        );
+
+      if (error) console.error("Supabase upsert failed:", error);
+    }
 
     console.log("CARDCOM WEBHOOK", {
       success,
@@ -102,13 +167,14 @@ router.post("/lowprofile/webhook", async (req, res) => {
       Description,
       TranzactionId,
       LowProfileId,
+      LowProfileDealGuid,
       phone,
       plan,
       amount,
       CardOwnerName,
       CardOwnerPhone,
       CardOwnerEmail,
-      Operation,
+      recurringResp,
     });
 
     return res.status(200).send("OK");
@@ -117,6 +183,5 @@ router.post("/lowprofile/webhook", async (req, res) => {
     return res.status(200).send("OK");
   }
 });
-
 
 module.exports = router;
