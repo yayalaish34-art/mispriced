@@ -20,12 +20,11 @@ app.use(express.json());
 
 const smsRoutes = require("./sms");
 const dev = require("./devscreen");
-const billingRoutes = require("./billing/billing.routes");
-
+const x = require("./billing/lowprofile.routes");
 
 app.use("/sms", smsRoutes);
 app.use("/devscreen", dev);
-app.use("/api/billing", billingRoutes);
+app.use("/api/billing", x);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
